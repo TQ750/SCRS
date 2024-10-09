@@ -1,0 +1,83 @@
+[
+    {
+      "input": "What is phishing?",
+      "response": "Phishing is a cyberattack where a fraudulent email or message is sent to trick individuals into revealing sensitive information, like passwords or credit card numbers."
+    },
+    {
+      "input": "strong password?",
+      "response": "A strong password should be at least 12 characters long, include a mix of uppercase and lowercase letters, numbers, and special characters, and avoid using common words or easily guessable information."
+    },
+    {
+      "input": "suspicious email?",
+      "response": "If you receive a suspicious email, do not click any links or download attachments. Report it to your IT or security team and delete the email."
+    },
+    {
+      "input": "practices for protecting sensitive data?",
+      "response": "Best practices include encrypting sensitive data, using strong passwords and two-factor authentication, regularly updating software, and educating employees about phishing and other social engineering attacks."
+    },
+    
+    {
+      "input": "malware?",
+      "response": "Malware is any software intentionally designed to cause damage to a computer, server, or network. It includes viruses, worms, Trojans, ransomware, spyware, and adware. If you face malware activitis Disconnect from the network, alert IT, notify affected parties, clean the system with cybersecurity help.Solution: Use email filters, educate employees on spear phishing, and maintain system security updates."
+    },
+
+    {
+      "input": "social engineering?",
+      "response": "Social engineering is a manipulation technique that exploits human error to gain private information, access, or valuables. Common tactics include phishing, baiting, and pretexting."
+    },
+
+    {
+      "input": "Mobile Tips",
+      "response": "Lock Your Phone with a PIN or Biometric: Always secure your smartphone with a strong PIN, fingerprint, or facial recognition to prevent unauthorized access.Only Install Apps from Trusted Sources:Avoid downloading apps from third-party stores. Stick to official app stores (e.g., Google Play, Apple App Store) to reduce the risk of malware.Turn Off Bluetooth When Not in Use:Bluetooth can be used to exploit your device if left on in public places. Disable it when you don't need it to prevent Bluetooth-based attacks like Bluejacking.Use Remote Wipe in Case of Theft:Enable remote wipe functionality on your smartphone. In case of theft, you can erase all data remotely to protect sensitive information.Avoid Rooting or Jailbreaking Your Device:Rooting or jailbreaking your device bypasses security protections built into the operating system, making it more vulnerable to malware and attacks."
+    },
+
+    {
+      "input": "Emails Tips",
+      "response": "Be Wary of Phishing Scams:Always double-check the sender's email address, look for suspicious links, and verify the legitimacy of any attachments before opening them. Phishing is one of the most common methods of cyber attack.Don't Click on Suspicious Links:Hover over links in emails before clicking them to check if the URL looks legitimate. If in doubt, type the website directly into your browser instead of clicking a link.Use Email Encryption:When sending sensitive information, use end-to-end encryption tools like PGP (Pretty Good Privacy) to protect your communications from being intercepted.Check for Spoofing Indicators:Look out for small details such as misspelled domain names or unusual email addresses that might indicate someone is impersonating a legitimate organization.Enable Anti-Spam and Anti-Malware Filters:Make sure your email client has anti-spam and anti-malware filters enabled to block suspicious emails before they reach your inbox."
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    },
+
+    {
+      "input": "1",
+      "response": "1"
+    }
+  ]
