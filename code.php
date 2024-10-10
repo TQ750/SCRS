@@ -1,25 +1,19 @@
 <?php
-// Start the session at the beginning of the file
 session_start();
 
-// Include database connection file
 include 'db_connection.php';
 
-// Function to generate a 32-character random string
-function generateEncryptionKey() {
-    return bin2hex(random_bytes(16)); // 16 bytes = 32 hex characters
-}
+function generateRnoKey($length = 32) {
+    return bin2hex(random_bytes($length / 2));}
 
-// Function to encrypt data using AES-256-CBC
-function encryptEvidence($data, $key) {
-    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
-    $encryptedData = openssl_encrypt($data, 'aes-256-cbc', $key, 0, $iv);
+function encryptEvidence($data, $rnoKey) {
+    $iv = substr($rnoKey, 0, 16); 
+    $encryptedData = openssl_encrypt($data, 'aes-256-cbc', $rnoKey, 0, $iv);
     return base64_encode($encryptedData . '::' . $iv);
 }
 
-// Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $rno = generateEncryptionKey(); // Generate a 32-character key as rno
+    $rno = generateRnoKey(); 
     $civilNumber = $_POST["civil_number"];
     $address = $_POST["address"];
     $fullName = $_POST["full_name"];
@@ -40,13 +34,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $uploadPath = $uploadDir . $email . "_" . $dateOfCrime . "_" . $rno; // Path for storing the file
             
             if (move_uploaded_file($tmpName, $uploadPath)) {
-                // Read file content
                 $fileData = file_get_contents($uploadPath);
-                
-                // Encrypt the evidence file data using rno as the key
                 $encryptedEvidence = encryptEvidence($fileData, $rno);
-                
-                // Save encrypted file to database (we will store the encrypted string)
                 $evidenceFiles[] = $encryptedEvidence;
             }
         }
@@ -61,7 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Bind parameters with appropriate types ('s' for string, 'i' for integer, etc.)
     $stmt->bind_param('issssssssss', 
-        $rno, 
+        $rno, // rno as the encryption key
         $civilNumber, 
         $address, 
         $fullName, 
