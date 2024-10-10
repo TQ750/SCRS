@@ -5,91 +5,67 @@ session_start();
 // Include database connection file
 include 'db_connection.php';
 
-// Function to generate a random 32-character key
-function generateRandomKey($rno) {
-    return substr(hash('sha256', $rno), 0, 32); // Use SHA-256 hash for a consistent key length
-}
-
-// Function to encrypt the PDF file
-function encryptFile($filePath, $key) {
+// Function to decrypt the file
+function decryptFile($encryptedData, $key) {
+    $data = base64_decode($encryptedData);
     $ivlen = openssl_cipher_iv_length('aes-256-cbc');
-    $iv = openssl_random_pseudo_bytes($ivlen);
-    $ciphertext = openssl_encrypt(file_get_contents($filePath), 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+    $iv = substr($data, 0, $ivlen);
+    $ciphertext = substr($data, $ivlen);
     
-    // Return the IV and ciphertext combined
-    return base64_encode($iv . $ciphertext);
+    return openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
 }
 
-// Check if the form is submitted
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $rno = random_int(0, 550000);
-    $civilNumber = $_POST["civil_number"];
-    $address = $_POST["address"];
-    $fullName = $_POST["full_name"];
-    $typeOfCase = $_POST["type_of_case"];
-    $email = $_POST["email"];
-    $phoneNumber = $_POST["phone_number"];
-    $nationality = $_POST["nationality"];
-    $dateOfCrime = $_POST["date_of_crime"];
-    $crimeDetails = $_POST["crime_details"];
-    $consent = isset($_POST["consent"]) ? true : false;
+// Check if rno is set in the URL
+if (isset($_GET['rno'])) {
+    $rno = $_GET['rno'];
 
-    // Handle evidence file uploads
-    $evidenceFiles = array();
-    if (isset($_FILES["evidence"]) && is_array($_FILES["evidence"]["name"])) {
-        $uploadDir = "reports/";
-        foreach ($_FILES["evidence"]["name"] as $key => $name) {
-            $tmpName = $_FILES["evidence"]["tmp_name"][$key];
-            $uploadPath = $uploadDir . $email . "_" . $dateOfCrime . "_" . $rno . "_" . basename($name);
-            if (move_uploaded_file($tmpName, $uploadPath)) {
-                $evidenceFiles[] = $uploadPath;
-            }
+    // Retrieve encrypted data from the info table
+    $stmt = $conn->prepare("SELECT data FROM info WHERE rno = ?");
+    $stmt->bind_param('s', $rno);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $encryptedData = $row['data'];
+
+        // Generate the same key used for encryption
+        $key = generateRandomKey($rno); // Ensure the key generation logic is the same
+
+        // Decrypt the file content
+        $decryptedContent = decryptFile($encryptedData, $key);
+
+        if ($decryptedContent === false) {
+            die('Decryption failed. Please check the encryption process.');
         }
-    }
 
-    // Insert data into the report table using prepared statement
-    $stmt = $conn->prepare("INSERT INTO report (rno, civilNumber, address, fullName, typeOfCase, evidence, email, phone, nationality, dateOfCrime, detailsOfCrime) 
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
-    // Convert array to comma-separated string
-    $evidenceString = implode(',', $evidenceFiles);
-    
-    // Bind parameters with appropriate types ('s' for string, 'i' for integer, etc.)
-    $stmt->bind_param('issssssssss', 
-        $rno, 
-        $civilNumber, 
-        $address, 
-        $fullName, 
-        $typeOfCase, 
-        $evidenceString, 
-        $email, 
-        $phoneNumber, 
-        $nationality, 
-        $dateOfCrime, 
-        $crimeDetails
-    );
+        // Save decrypted PDF to downloads folder
+        $downloadDir = 'downloads/';
+        if (!is_dir($downloadDir)) {
+            mkdir($downloadDir, 0777, true); // Create downloads folder if it doesn't exist
+        }
 
-    // Execute the prepared statement
-    if ($stmt->execute()) {
-        // Create PDF
-        $pdfFilePath = "reports/" . $civilNumber . ".pdf";
-        $pdfContent = "Civil Number: $civilNumber\nAddress: $address\nFull Name: $fullName\nType of Case: $typeOfCase\nEmail: $email\nPhone: $phoneNumber\nNationality: $nationality\nDate of Crime: $dateOfCrime\nCrime Details: $crimeDetails\nEvidence: $evidenceString";
-        file_put_contents($pdfFilePath, $pdfContent);
+        $pdfFilePath = $downloadDir . $rno . '_report.pdf';
+        file_put_contents($pdfFilePath, $decryptedContent);
+
+        // Force download the PDF
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . basename($pdfFilePath) . '"');
+        header('Content-Length: ' . filesize($pdfFilePath));
+        readfile($pdfFilePath);
         
-        // Generate key and encrypt the PDF
-        $key = generateRandomKey($rno);
-        $encryptedData = encryptFile($pdfFilePath, $key);
-        
-        // Save to info table
-        $infoStmt = $conn->prepare("INSERT INTO info (rno, data) VALUES (?, ?)");
-        $infoStmt->bind_param('ss', $rno, $encryptedData);
-        $infoStmt->execute();
-        
-        // Redirect after form submission
-        header("Location: report_details.php?rno=" . $rno);
-        exit; // Ensure script execution stops after redirection
+        // Optionally redirect to report_management.php after download
+        // header("Location: report_management.php");
+        // exit; // Ensure the script stops after redirection
     } else {
-        echo "Error: " . $stmt->error;
+        echo "No report found for the provided report number.";
     }
+} else {
+    echo "Report number (rno) is not specified.";
+}
+
+// Function to generate a random 32-character key (keep this same as in the encryption process)
+function generateRandomKey($rno) {
+    return substr(hash('sha256', $rno), 0, 32); // Ensure this matches with the encryption key generation
 }
 ?>
