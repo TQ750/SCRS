@@ -1,7 +1,17 @@
 <?php
+// Enable error reporting
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 // Start the session and include the database connection file
 session_start();
 include 'db_connection.php';
+
+// Function to generate a random 32-character key
+function generateRandomKey($rno) {
+    return bin2hex(random_bytes(16)) . substr($rno, 0, 16);
+}
 
 // Function to decrypt the file
 function decryptFile($encryptedData, $key) {
