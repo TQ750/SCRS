@@ -2,14 +2,17 @@
 session_start();
 include 'db_connection.php';
 
-// Check if the user is logged in as an admin (add your admin check logic here)
+function decryptEvidence($encryptedData, $rnoKey) {
+    list($encryptedData, $iv) = explode('::', base64_decode($encryptedData), 2);
+    return openssl_decrypt($encryptedData, 'aes-256-cbc', $rnoKey, 0, $iv);
+}
 
 // Get the report ID from the URL
-if (isset($_GET['id'])) {
-    $report_id = intval($_GET['id']); // Sanitize the input
+if (isset($_GET['rno'])) {
+    $report_rno = intval($_GET['rno']); // Sanitize the input
 
     // Fetch the report details
-    $sql = "SELECT * FROM report WHERE id = $report_id";
+    $sql = "SELECT * FROM report WHERE rno = $report_rno";
     $result = $conn->query($sql);
 
     // Check if the report exists
@@ -20,6 +23,37 @@ if (isset($_GET['id'])) {
     }
 } else {
     die("Invalid request.");
+}
+
+// Check if the 'Download Evidence' button was clicked
+if (isset($_POST['download_evidence'])) {
+    // Decrypt the evidence using the report's 'rno' as the decryption key
+    $evidenceFiles = explode(",", $report['evidence']); // Assuming multiple evidence files
+    $rnoKey = $report['rno']; // Use 'rno' as the key
+
+    foreach ($evidenceFiles as $file) {
+        $decryptedEvidence = decryptEvidence($file, $rnoKey);
+
+        // Generate a filename for the decrypted file
+        $filename = "decrypted_evidence_" . $report_rno . ".txt"; // Change extension based on actual file type
+
+        // Save the decrypted file in the downloads folder
+        $filePath = "downloads/" . $filename;
+        file_put_contents($filePath, $decryptedEvidence);
+
+        // Trigger download of the decrypted file
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename=' . basename($filePath));
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($filePath));
+        flush(); // Flush system output buffer
+        readfile($filePath);
+
+        exit;
+    }
 }
 ?>
 
@@ -77,6 +111,21 @@ if (isset($_GET['id'])) {
         .back-link:hover {
             text-decoration: underline;
         }
+
+        /* Button styles */
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #004080;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .button:hover {
+            background-color: #0066cc;
+        }
     </style>
 </head>
 <body>
@@ -101,6 +150,14 @@ if (isset($_GET['id'])) {
         <div class="report-detail">
             <label for="reportDetails">Summary:</label>
             <p id="reportDetails"><?php echo nl2br(htmlspecialchars($report['detailsOfCrime'])); ?></p>
+        </div>
+
+        <!-- Evidence Decryption Button -->
+        <div class="report-detail">
+            <label for="reportDetails">Evidence:</label>
+            <form method="post">
+                <button type="submit" name="download_evidence" class="button">Download Decrypted Evidence</button>
+            </form>
         </div>
 
         <a href="report_managment.php" class="back-link">Back to Report Management</a>
