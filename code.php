@@ -30,10 +30,14 @@ if (isset($_GET['rno'])) {
         $encryptedData = $row['data'];
 
         // Generate the key based on rno (this should match your encryption method)
-        $key = generateRandomKey($rno); // Ensure the key generation logic is the same
+        $key = substr(md5($rno, true), 0, 32); // Generate a 32-byte key from rno
 
         // Decrypt the file content
         $decryptedContent = decryptFile($encryptedData, $key);
+
+        if ($decryptedContent === false) {
+            die('Decryption failed. Please check the encryption process.');
+        }
 
         // Save decrypted PDF to downloads folder
         $downloadDir = 'downloads/';
@@ -49,7 +53,7 @@ if (isset($_GET['rno'])) {
         header('Content-Disposition: attachment; filename="' . basename($pdfFilePath) . '"');
         header('Content-Length: ' . filesize($pdfFilePath));
         readfile($pdfFilePath);
-
+        
         // Optionally redirect to report_management.php after download
         // header("Location: report_management.php");
         // exit; // Ensure the script stops after redirection
@@ -58,10 +62,5 @@ if (isset($_GET['rno'])) {
     }
 } else {
     echo "Report number (rno) is not specified.";
-}
-
-// Function to generate a random 32-character key
-function generateRandomKey($rno) {
-    return bin2hex(random_bytes(16)) . substr($rno, 0, 16);
 }
 ?>
