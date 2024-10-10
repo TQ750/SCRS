@@ -1,166 +1,188 @@
-<?php
-session_start();
-include 'db_connection.php';
-
-function decryptEvidence($encryptedData, $rnoKey) {
-    list($encryptedData, $iv) = explode('::', base64_decode($encryptedData), 2);
-    return openssl_decrypt($encryptedData, 'aes-256-cbc', $rnoKey, 0, $iv);
-}
-
-// Get the report ID from the URL
-if (isset($_GET['rno'])) {
-    $report_rno = intval($_GET['rno']); // Sanitize the input
-
-    // Fetch the report details
-    $sql = "SELECT * FROM report WHERE rno = $report_rno";
-    $result = $conn->query($sql);
-
-    // Check if the report exists
-    if ($result->num_rows > 0) {
-        $report = $result->fetch_assoc();
-    } else {
-        die("Report not found.");
-    }
-} else {
-    die("Invalid request.");
-}
-
-// Check if the 'Download Evidence' button was clicked
-if (isset($_POST['download_evidence'])) {
-    // Decrypt the evidence using the report's 'rno' as the decryption key
-    $evidenceFiles = explode(",", $report['evidence']); // Assuming multiple evidence files
-    $rnoKey = $report['rno']; // Use 'rno' as the key
-
-    foreach ($evidenceFiles as $file) {
-        $decryptedEvidence = decryptEvidence($file, $rnoKey);
-
-        // Generate a filename for the decrypted file
-        $filename = "decrypted_evidence_" . $report_rno . ".txt"; // Change extension based on actual file type
-
-        // Save the decrypted file in the downloads folder
-        $filePath = "downloads/" . $filename;
-        file_put_contents($filePath, $decryptedEvidence);
-
-        // Trigger download of the decrypted file
-        header('Content-Description: File Transfer');
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename=' . basename($filePath));
-        header('Expires: 0');
-        header('Cache-Control: must-revalidate');
-        header('Pragma: public');
-        header('Content-Length: ' . filesize($filePath));
-        flush(); // Flush system output buffer
-        readfile($filePath);
-
-        exit;
-    }
-}
-?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+        setTimeout(function(){
+            window.location.href = "admin_login.php";
+        }, 3000000);
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Report - Cyber Crime Hub</title>
+    <title>Report Management</title>
     <link rel="stylesheet" href="style.css"> <!-- CSS for styling -->
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background-color: #f2f2f2; /* Light gray background */
+            background-color: white; /* Set background color to white */
         }
 
-        .container {
-            max-width: 800px;
-            margin: 50px auto;
+        .sidebar {
+            width: 250px;
+            background-color: rgba(0, 0, 102, 0.9); /* Dark blue sidebar */
+            position: fixed;
+            height: 100%;
             padding: 20px;
-            background-color: white; /* White background for the content */
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: white; /* Sidebar title text color */
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            margin: 10px 0;
+        }
+
+        .sidebar ul li a {
+            text-decoration: none;
+            color: #ffffff; /* Sidebar link color */
+            font-weight: bold;
+        }
+
+        .main-content {
+            margin-left: 270px;
+            padding: 40px 20px; /* Added padding to provide space around the content */
         }
 
         h1 {
-            text-align: center;
+            text-align: center; /* Center the Report Management heading */
+            font-size: 32px;
             color: #004080; /* Dark blue color for the heading */
         }
 
-        .report-detail {
-            margin: 20px 0;
+        table {
+            width: 80%; /* Make table slightly smaller */
+            margin: 20px auto; /* Center the table */
+            border-collapse: collapse;
         }
 
-        .report-detail label {
-            font-weight: bold;
-            display: inline-block;
-            margin-bottom: 5px;
+        th, td {
+            border: 1px solid #004080; /* Dark blue border for cells */
+            padding: 15px;
+            text-align: left;
         }
 
-        .report-detail p {
-            margin: 5px 0 20px 0;
+        th {
+            background-color: #004080; /* Dark blue header background */
+            color: white; /* White text for table headers */
         }
 
-        .back-link {
-            display: block;
-            text-align: center;
-            margin-top: 20px;
+        td {
+            background-color: #e6f0ff; /* Light blue background for table rows */
+        }
+
+        .main-content a {
+            margin: 0 5px;
             text-decoration: none;
-            color: #0066cc; /* Blue color for the back link */
+            color: #004080; /* Dark blue for links */
+            font-weight: bold;
         }
 
-        .back-link:hover {
+        .main-content a:hover {
             text-decoration: underline;
         }
 
-        /* Button styles */
-        .button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #004080;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 5px;
+        /* Style for messages */
+        .message {
             text-align: center;
+            color: green;
+            margin-bottom: 20px;
         }
 
-        .button:hover {
-            background-color: #0066cc;
+        .error {
+            color: red;
+        }
+
+        .status-select {
+            width: 100px; /* Set width for select */
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Report Details</h1>
+    <div class="sidebar">
+        <h2>Admin Dashboard</h2>
+        <ul>
+            <li><a href="admin_dashboard.php">Dashboard</a></li>
+            <li><a href="user_management.php">User Management</a></li>
+            <li><a href="report_management.php">Report Management</a></li>
+            <li><a href="testimonial_management.php">Testimonial Management</a></li>
+            <li><a href="admin_change_pass.php">Change Password</a></li>
+            <li><a href="admin_logout.php">Logout</a></li>
+        </ul>
+    </div>
+<?php  session_start();
+                include 'db_connection.php'; ?>
+    <div class="main-content">
+        <h1>Report Management</h1>
 
-        <div class="report-detail">
-            <label for="reportId">Report ID:</label>
-            <p id="reportId"><?php echo $report['id']; ?></p>
-        </div>
+        <?php if (isset($_GET['message'])): ?>
+            <div class="message"><?php echo htmlspecialchars($_GET['message']); ?></div>
+        <?php elseif (isset($_GET['error'])): ?>
+            <div class="message error"><?php echo htmlspecialchars($_GET['error']); ?></div>
+        <?php endif; ?>
 
-        <div class="report-detail">
-            <label for="reportType">Type of Case:</label>
-            <p id="reportType"><?php echo $report['typeOfCase']; ?></p>
-        </div>
-
-        <div class="report-detail">
-            <label for="reportDate">Date of Crime:</label>
-            <p id="reportDate"><?php echo $report['dateOfCrime']; ?></p>
-        </div>
-
-        <div class="report-detail">
-            <label for="reportDetails">Summary:</label>
-            <p id="reportDetails"><?php echo nl2br(htmlspecialchars($report['detailsOfCrime'])); ?></p>
-        </div>
-
-        <!-- Evidence Decryption Button -->
-        <div class="report-detail">
-            <label for="reportDetails">Evidence:</label>
-            <form method="post">
-                <button type="submit" name="download_evidence" class="button">Download Decrypted Evidence</button>
-            </form>
-        </div>
-
-        <a href="report_managment.php" class="back-link">Back to Report Management</a>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>RNO</th>
+                    <th>Full Name</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Summary</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                
+                
+                // Fetch reports
+                $reports_result = $conn->query("SELECT * FROM report");
+                
+                if ($reports_result->num_rows > 0):
+                    while ($report = $reports_result->fetch_assoc()) : ?>
+                        <tr>
+                            <td><?php echo $report['id']; ?></td>
+                            <td><?php echo $report['rno']; ?></td>
+                            <td><?php echo $report['fullName']; ?></td>
+                            <td><?php echo $report['typeOfCase']; ?></td>
+                            <td><?php echo $report['dateOfCrime']; ?></td>
+                            <td><?php echo $report['detailsOfCrime']; ?></td>
+                            <td>
+                                <form action="update_status.php" method="POST">
+                                    <input type="hidden" name="id" value="<?php echo $report['id']; ?>">
+                                    <select name="status" class="status-select" onchange="this.form.submit()">
+                                        <option value="Active" <?php if ($report['status'] == 'Active') echo 'selected'; ?>>Active</option>
+                                        <option value="In Progress" <?php if ($report['status'] == 'In Progress') echo 'selected'; ?>>In Progress</option>
+                                        <option value="Resolved" <?php if ($report['status'] == 'Resolved') echo 'selected'; ?>>Resolved</option>
+                                    </select>
+                                </form>
+                            </td>
+                            <td>
+                                <a href="view_report.php?rno=<?php echo $report['rno']; ?>">View</a>
+                                <a href="delete_report.php?id=<?php echo $report['id']; ?>" 
+                                   onclick="return confirm('Are you sure you want to delete this report?');">Delete</a>
+                            </td>
+                        </tr>
+                    <?php endwhile;
+                else: ?>
+                    <tr>
+                        <td colspan="8" style="text-align: center;">No reports found</td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
