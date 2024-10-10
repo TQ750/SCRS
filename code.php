@@ -1,14 +1,13 @@
 <?php
-// Start the session
+// Start the session at the beginning of the file
 session_start();
 
 // Include database connection file
 include 'db_connection.php';
-require('fpdf.php'); // Include FPDF library
 
 // Function to generate a random 32-character key
 function generateRandomKey($rno) {
-    return substr(hash('sha256', $rno), 0, 32); // Use SHA-256 hash for a consistent key length
+    return bin2hex(random_bytes(16)) . substr($rno, 0, 16);
 }
 
 // Function to encrypt the PDF file
@@ -19,6 +18,13 @@ function encryptFile($filePath, $key) {
     
     // Return the IV and ciphertext combined
     return base64_encode($iv . $ciphertext);
+}
+
+// Function to create a simple PDF file
+function createPDF($filePath, $content) {
+    // Create a simple PDF file (plain text)
+    $pdfContent = "This is a simple PDF file.\n\n" . $content;
+    file_put_contents($filePath, $pdfContent);
 }
 
 // Check if the form is submitted
@@ -72,32 +78,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Execute the prepared statement
     if ($stmt->execute()) {
-        // Create PDF using FPDF
+        // Create PDF
         $pdfFilePath = "reports/" . $civilNumber . ".pdf";
-        $pdf = new FPDF();
-        $pdf->AddPage();
-        $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(40, 10, 'Civil Number: ' . $civilNumber);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Address: ' . $address);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Full Name: ' . $fullName);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Type of Case: ' . $typeOfCase);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Email: ' . $email);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Phone: ' . $phoneNumber);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Nationality: ' . $nationality);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Date of Crime: ' . $dateOfCrime);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Crime Details: ' . $crimeDetails);
-        $pdf->Ln();
-        $pdf->Cell(40, 10, 'Evidence: ' . $evidenceString);
+        $pdfContent = "Civil Number: $civilNumber\nAddress: $address\nFull Name: $fullName\nType of Case: $typeOfCase\nEmail: $email\nPhone: $phoneNumber\nNationality: $nationality\nDate of Crime: $dateOfCrime\nCrime Details: $crimeDetails\nEvidence: $evidenceString";
         
-        $pdf->Output('F', $pdfFilePath); // Save PDF to file
+        // Create the PDF
+        createPDF($pdfFilePath, $pdfContent);
         
         // Generate key and encrypt the PDF
         $key = generateRandomKey($rno);
