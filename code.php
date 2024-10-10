@@ -1,104 +1,53 @@
 <?php
-// Start the session at the beginning of the file
+// Start the session and include the database connection file
 session_start();
-
-// Include database connection file
 include 'db_connection.php';
 
-// Function to generate a random 32-character key
-function generateRandomKey($rno) {
-    return bin2hex(random_bytes(16)) . substr($rno, 0, 16);
-}
-
-// Function to encrypt the PDF file
-function encryptFile($filePath, $key) {
+// Function to decrypt the file
+function decryptFile($encryptedData, $key) {
+    $data = base64_decode($encryptedData);
     $ivlen = openssl_cipher_iv_length('aes-256-cbc');
-    $iv = openssl_random_pseudo_bytes($ivlen);
-    $ciphertext = openssl_encrypt(file_get_contents($filePath), 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
-    
-    // Return the IV and ciphertext combined
-    return base64_encode($iv . $ciphertext);
+    $iv = substr($data, 0, $ivlen);
+    $ciphertext = substr($data, $ivlen);
+    return openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
 }
 
-// Function to create a simple PDF file
-function createPDF($filePath, $content) {
-    // Create a simple PDF file (plain text)
-    $pdfContent = "This is a simple PDF file.\n\n" . $content;
-    file_put_contents($filePath, $pdfContent);
-}
+// Check if 'rno' is set in the URL
+if (isset($_GET['rno'])) {
+    $rno = $_GET['rno'];
 
-// Check if the form is submitted
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $rno = random_int(0, 550000);
-    $civilNumber = $_POST["civil_number"];
-    $address = $_POST["address"];
-    $fullName = $_POST["full_name"];
-    $typeOfCase = $_POST["type_of_case"];
-    $email = $_POST["email"];
-    $phoneNumber = $_POST["phone_number"];
-    $nationality = $_POST["nationality"];
-    $dateOfCrime = $_POST["date_of_crime"];
-    $crimeDetails = $_POST["crime_details"];
-    $consent = isset($_POST["consent"]) ? true : false;
+    // Fetch the encrypted data from the info table
+    $stmt = $conn->prepare("SELECT data FROM info WHERE rno = ?");
+    $stmt->bind_param('s', $rno);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    // Handle evidence file uploads
-    $evidenceFiles = array();
-    if (isset($_FILES["evidence"]) && is_array($_FILES["evidence"]["name"])) {
-        $uploadDir = "reports/";
-        foreach ($_FILES["evidence"]["name"] as $key => $name) {
-            $tmpName = $_FILES["evidence"]["tmp_name"][$key];
-            $uploadPath = $uploadDir . $email . "_" . $dateOfCrime . "_" . $rno . "_" . basename($name);
-            if (move_uploaded_file($tmpName, $uploadPath)) {
-                $evidenceFiles[] = $uploadPath;
-            }
-        }
-    }
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $encryptedData = $row['data'];
+        
+        // Regenerate the key used for decryption
+        $key = generateRandomKey($rno); // Assuming the same key generation logic
 
-    // Insert data into the report table using prepared statement
-    $stmt = $conn->prepare("INSERT INTO report (rno, civilNumber, address, fullName, typeOfCase, evidence, email, phone, nationality, dateOfCrime, detailsOfCrime) 
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
-    // Convert array to comma-separated string
-    $evidenceString = implode(',', $evidenceFiles);
-    
-    // Bind parameters with appropriate types ('s' for string, 'i' for integer, etc.)
-    $stmt->bind_param('issssssssss', 
-        $rno, 
-        $civilNumber, 
-        $address, 
-        $fullName, 
-        $typeOfCase, 
-        $evidenceString, 
-        $email, 
-        $phoneNumber, 
-        $nationality, 
-        $dateOfCrime, 
-        $crimeDetails
-    );
+        // Decrypt the data
+        $pdfContent = decryptFile($encryptedData, $key);
+        
+        // Save decrypted content to a PDF file
+        $downloadPath = "downloads/" . $rno . ".pdf";
+        file_put_contents($downloadPath, $pdfContent);
 
-    // Execute the prepared statement
-    if ($stmt->execute()) {
-        // Create PDF
-        $pdfFilePath = "reports/" . $civilNumber . ".pdf";
-        $pdfContent = "Civil Number: $civilNumber\nAddress: $address\nFull Name: $fullName\nType of Case: $typeOfCase\nEmail: $email\nPhone: $phoneNumber\nNationality: $nationality\nDate of Crime: $dateOfCrime\nCrime Details: $crimeDetails\nEvidence: $evidenceString";
-        
-        // Create the PDF
-        createPDF($pdfFilePath, $pdfContent);
-        
-        // Generate key and encrypt the PDF
-        $key = generateRandomKey($rno);
-        $encryptedData = encryptFile($pdfFilePath, $key);
-        
-        // Save to info table
-        $infoStmt = $conn->prepare("INSERT INTO info (rno, data) VALUES (?, ?)");
-        $infoStmt->bind_param('ss', $rno, $encryptedData);
-        $infoStmt->execute();
-        
-        // Redirect after form submission
-        header("Location: report_details.php?rno=" . $rno);
-        exit; // Ensure script execution stops after redirection
+        // Force download
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . basename($downloadPath) . '"');
+        readfile($downloadPath);
+
+        // Redirect to report management page
+        header("Location: report_management.php");
+        exit;
     } else {
-        echo "Error: " . $stmt->error;
+        echo "No data found for the specified rno.";
     }
+} else {
+    echo "No rno specified.";
 }
 ?>
