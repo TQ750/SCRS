@@ -5,9 +5,21 @@ session_start();
 // Include database connection file
 include 'db_connection.php';
 
+// Function to generate a 32-character random string
+function generateEncryptionKey() {
+    return bin2hex(random_bytes(16)); // 16 bytes = 32 hex characters
+}
+
+// Function to encrypt data using AES-256-CBC
+function encryptEvidence($data, $key) {
+    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
+    $encryptedData = openssl_encrypt($data, 'aes-256-cbc', $key, 0, $iv);
+    return base64_encode($encryptedData . '::' . $iv);
+}
+
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $rno = random_int(0, 550000);
+    $rno = generateEncryptionKey(); // Generate a 32-character key as rno
     $civilNumber = $_POST["civil_number"];
     $address = $_POST["address"];
     $fullName = $_POST["full_name"];
@@ -19,15 +31,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $crimeDetails = $_POST["crime_details"];
     $consent = isset($_POST["consent"]) ? true : false;
 
-    // Handle evidence file uploads
+    // Handle evidence file uploads and encrypt them
     $evidenceFiles = array();
     if (isset($_FILES["evidence"]) && is_array($_FILES["evidence"]["name"])) {
         $uploadDir = "reports/";
         foreach ($_FILES["evidence"]["name"] as $key => $name) {
             $tmpName = $_FILES["evidence"]["tmp_name"][$key];
-            $uploadPath = $uploadDir . $email . "_" . $dateOfCrime . "_" . $rno; // Changed $semail to $email
+            $uploadPath = $uploadDir . $email . "_" . $dateOfCrime . "_" . $rno; // Path for storing the file
+            
             if (move_uploaded_file($tmpName, $uploadPath)) {
-                $evidenceFiles[] = $uploadPath;
+                // Read file content
+                $fileData = file_get_contents($uploadPath);
+                
+                // Encrypt the evidence file data using rno as the key
+                $encryptedEvidence = encryptEvidence($fileData, $rno);
+                
+                // Save encrypted file to database (we will store the encrypted string)
+                $evidenceFiles[] = $encryptedEvidence;
             }
         }
     }
@@ -35,7 +55,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Insert data into the report table using prepared statement
     $stmt = $conn->prepare("INSERT INTO report (rno, civilNumber, address, fullName, typeOfCase, evidence, email, phone, nationality, dateOfCrime, detailsOfCrime) 
                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
+
+    // Convert array to comma-separated string for evidence files
+    $evidenceFilesString = implode(",", $evidenceFiles);
+
     // Bind parameters with appropriate types ('s' for string, 'i' for integer, etc.)
     $stmt->bind_param('issssssssss', 
         $rno, 
@@ -43,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $address, 
         $fullName, 
         $typeOfCase, 
-        $evidenceFiles, // Convert array to comma-separated string
+        $evidenceFilesString, // Encrypted evidence
         $email, 
         $phoneNumber, 
         $nationality, 
@@ -59,6 +82,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     exit; // Ensure script execution stops after redirection
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
